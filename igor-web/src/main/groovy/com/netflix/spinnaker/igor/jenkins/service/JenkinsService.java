@@ -19,6 +19,7 @@ package com.netflix.spinnaker.igor.jenkins.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.netflix.spinnaker.fiat.model.resources.Permissions;
 import com.netflix.spinnaker.hystrix.SimpleJava8HystrixCommand;
 import com.netflix.spinnaker.igor.build.model.GenericBuild;
 import com.netflix.spinnaker.igor.build.model.GenericGitRevision;
@@ -62,12 +63,19 @@ public class JenkinsService implements BuildService, BuildProperties {
     private final JenkinsClient jenkinsClient;
     private final Boolean csrf;
     private final RetrySupport retrySupport = new RetrySupport();
+    private final Permissions permissions;
 
-    public JenkinsService(String jenkinsHostId, JenkinsClient jenkinsClient, Boolean csrf) {
+    public JenkinsService(String jenkinsHostId, JenkinsClient jenkinsClient, Boolean csrf, Permissions permissions) {
         this.serviceName = jenkinsHostId;
         this.groupKey = "jenkins-" + jenkinsHostId;
         this.jenkinsClient = jenkinsClient;
         this.csrf = csrf;
+        this.permissions = permissions;
+    }
+
+    @Override
+    public String getName() {
+        return this.serviceName;
     }
 
     private String encode(String uri) {
@@ -159,6 +167,11 @@ public class JenkinsService implements BuildService, BuildProperties {
 
         int lastSlash = queuedLocation.lastIndexOf('/');
         return Integer.parseInt(queuedLocation.substring(lastSlash + 1));
+    }
+
+    @Override
+    public Permissions getPermissions() {
+        return permissions;
     }
 
     private ScmDetails getGitDetails(String jobName, Integer buildNumber) {

@@ -15,6 +15,7 @@
  */
 package com.netflix.spinnaker.igor.gitlabci.service;
 
+import com.netflix.spinnaker.fiat.model.resources.Permissions;
 import com.netflix.spinnaker.igor.build.model.GenericBuild;
 import com.netflix.spinnaker.igor.build.model.GenericGitRevision;
 import com.netflix.spinnaker.igor.gitlabci.client.GitlabCiClient;
@@ -30,16 +31,26 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 public class GitlabCiService implements BuildService {
-    private GitlabCiClient client;
-    private String address;
-    private boolean limitByMembership;
-    private boolean limitByOwnership;
+    private final String name;
+    private final GitlabCiClient client;
+    private final String address;
+    private final boolean limitByMembership;
+    private final boolean limitByOwnership;
+    private final Permissions permissions;
 
-    public GitlabCiService(GitlabCiClient client, String address, boolean limitByMembership, boolean limitByOwnership) {
+    public GitlabCiService(GitlabCiClient client, String name, String address, boolean limitByMembership,
+                           boolean limitByOwnership, Permissions permissions) {
         this.client = client;
+        this.name = name;
         this.address = address;
         this.limitByMembership = limitByMembership;
         this.limitByOwnership = limitByOwnership;
+        this.permissions = permissions;
+    }
+
+    @Override
+    public String getName() {
+        return name;
     }
 
     @Override
@@ -65,6 +76,11 @@ public class GitlabCiService implements BuildService {
     @Override
     public int triggerBuildWithParameters(String job, Map<String, String> queryParameters) {
         throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Permissions getPermissions() {
+        return permissions;
     }
 
     public List<Project> getProjects() {

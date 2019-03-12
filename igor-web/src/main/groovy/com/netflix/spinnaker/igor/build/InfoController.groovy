@@ -17,6 +17,7 @@
 
 package com.netflix.spinnaker.igor.build
 
+import com.netflix.spinnaker.fiat.model.resources.Permissions
 import com.netflix.spinnaker.igor.config.GitlabCiProperties
 import com.netflix.spinnaker.igor.config.JenkinsProperties
 import com.netflix.spinnaker.igor.config.TravisProperties
@@ -28,11 +29,14 @@ import com.netflix.spinnaker.igor.wercker.WerckerService
 import com.netflix.spinnaker.kork.web.exceptions.NotFoundException
 import groovy.util.logging.Slf4j
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.web.bind.annotation.*
+import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestMethod
+import org.springframework.web.bind.annotation.RequestParam
+import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.servlet.HandlerMapping
 
 import javax.servlet.http.HttpServletRequest
-
 /**
  * A controller that provides jenkins information
  */
@@ -59,40 +63,21 @@ class InfoController {
     WerckerProperties werckerProperties
 
     @RequestMapping(value = '/masters', method = RequestMethod.GET)
-    List<Object> listMasters(
-        @RequestParam(value = "showUrl", defaultValue = "false") String showUrl,
-        @RequestParam(value = "type", defaultValue = "") String type) {
+    List<String> listMasters(@RequestParam(value = "type", defaultValue = "") String type) {
 
-        BuildServiceProvider providerType = (type == "") ? null :
-            BuildServiceProvider.valueOf(type.toUpperCase())
-
-        if (showUrl == 'true') {
-            List<Object> masterList = []
-            addMaster(masterList, providerType, jenkinsProperties,  BuildServiceProvider.JENKINS)
-            addMaster(masterList, providerType, travisProperties,   BuildServiceProvider.TRAVIS)
-            addMaster(masterList, providerType, gitlabCiProperties, BuildServiceProvider.GITLAB_CI)
-            addMaster(masterList, providerType, werckerProperties,  BuildServiceProvider.WERCKER)
-            return masterList
+        BuildServiceProvider providerType = (type == "") ? null : BuildServiceProvider.valueOf(type.toUpperCase())
+        //Filter by provider type if it is specified
+        if (providerType) {
+            return buildServices.getServiceNames(providerType)
         } else {
-            //Filter by provider type if it is specified
-            if (providerType) {
-                return buildServices.getServiceNames(providerType)
-            } else {
-                return buildServices.getServiceNames()
-            }
+            return buildServices.getServiceNames()
         }
     }
 
-    void addMaster(masterList, providerType, properties, expctedType) {
-        if (!providerType || providerType == expctedType) {
-            masterList.addAll(
-                properties?.masters.collect {
-                    [
-                        "name"         : it.name,
-                        "address"      : it.address
-                    ]
-                }
-            )
+    @RequestMapping(value = '/buildServices', method = RequestMethod.GET)
+    List<BuildServiceView> getAllBuildServices() {
+        buildServices.allBuildServices.values().collect { buildService ->
+            new BuildServiceView(buildService.name, buildService.buildServiceProvider(), buildService.permissions)
         }
     }
 
@@ -140,5 +125,17 @@ class InfoController {
             throw new NotFoundException("Master '${master}' does not exist")
         }
         return service.getJobConfig(job)
+    }
+
+    class BuildServiceView {
+        final String name
+        final BuildServiceProvider buildServiceProvider
+        final Permissions permissions
+
+        BuildServiceView(name, buildServiceProvider, permissions) {
+            this.name = name
+            this.buildServiceProvider = buildServiceProvider
+            this.permissions = permissions
+        }
     }
 }

@@ -15,6 +15,7 @@
  */
 package com.netflix.spinnaker.igor.service;
 
+import com.netflix.spinnaker.fiat.model.resources.Permissions;
 import com.netflix.spinnaker.igor.build.model.GenericBuild;
 import com.netflix.spinnaker.igor.build.model.GenericGitRevision;
 import com.netflix.spinnaker.igor.model.BuildServiceProvider;
@@ -23,7 +24,11 @@ import java.util.List;
 import java.util.Map;
 
 public interface BuildService {
+    String getName();
+
     BuildServiceProvider buildServiceProvider();
+
+    Permissions getPermissions();
 
     List<GenericGitRevision> getGenericGitRevisions(String job, int buildNumber);
 

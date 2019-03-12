@@ -18,6 +18,7 @@ package com.netflix.spinnaker.igor.config
 
 import com.netflix.hystrix.exception.HystrixRuntimeException
 import com.netflix.spectator.api.Registry
+import com.netflix.spinnaker.fiat.shared.EnableFiatAutoConfig
 import com.netflix.spinnaker.igor.service.ArtifactDecorator
 import com.netflix.spinnaker.igor.service.BuildServices
 import com.netflix.spinnaker.kork.artifacts.parsing.DefaultJinjavaFactory
@@ -48,6 +49,7 @@ import java.util.concurrent.Executors
 @Configuration
 @CompileStatic
 @Slf4j
+@EnableFiatAutoConfig
 class IgorConfig extends WebMvcConfigurerAdapter {
     @Autowired
     Registry registry

@@ -17,6 +17,7 @@
 
 package com.netflix.spinnaker.igor.travis.service;
 
+import com.netflix.spinnaker.fiat.model.resources.Permissions;
 import com.netflix.spinnaker.hystrix.SimpleJava8HystrixCommand;
 import com.netflix.spinnaker.igor.build.model.GenericBuild;
 import com.netflix.spinnaker.igor.build.model.GenericGitRevision;
@@ -56,8 +57,6 @@ import retrofit.RetrofitError;
 import retrofit.client.Response;
 import retrofit.mime.TypedByteArray;
 
-import javax.annotation.Nullable;
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -86,10 +85,14 @@ public class TravisService implements BuildService, BuildProperties {
     private final TravisCache travisCache;
     private final Collection<String> artifactRegexes;
     private final Optional<ArtifactDecorator> artifactDecorator;
+    private final Permissions permissions;
     protected AccessToken accessToken;
     private Accounts accounts;
 
-    public TravisService(String travisHostId, String baseUrl, String githubToken, int numberOfRepositories, TravisClient travisClient, TravisCache travisCache, Optional<ArtifactDecorator> artifactDecorator, Collection<String> artifactRegexes) {
+    public TravisService(String travisHostId, String baseUrl, String githubToken, int numberOfRepositories,
+                         TravisClient travisClient, TravisCache travisCache,
+                         Optional<ArtifactDecorator> artifactDecorator, Collection<String> artifactRegexes,
+                         Permissions permissions) {
         this.numberOfRepositories = numberOfRepositories;
         this.groupKey = travisHostId;
         this.gitHubAuth = new GithubAuth(githubToken);
@@ -98,6 +101,12 @@ public class TravisService implements BuildService, BuildProperties {
         this.travisCache = travisCache;
         this.artifactDecorator = artifactDecorator;
         this.artifactRegexes = artifactRegexes != null ? new HashSet<>(artifactRegexes) : Collections.emptySet();
+        this.permissions = permissions;
+    }
+
+    @Override
+    public String getName() {
+        return this.groupKey;
     }
 
     @Override
@@ -143,6 +152,11 @@ public class TravisService implements BuildService, BuildProperties {
         }
 
         return travisCache.setQueuedJob(groupKey, triggerResponse.getRequest().getRepository().getId(), triggerResponse.getRequest().getId());
+    }
+
+    @Override
+    public Permissions getPermissions() {
+        return permissions;
     }
 
     public List<Build> getBuilds() {

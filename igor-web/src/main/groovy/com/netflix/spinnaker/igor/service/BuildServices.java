@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.igor.service;
 
+import com.google.common.collect.ImmutableMap;
 import com.netflix.spinnaker.igor.model.BuildServiceProvider;
 
 import java.util.HashMap;
@@ -45,5 +46,9 @@ public class BuildServices {
             .map(Map.Entry::getKey)
             .sorted()
             .collect(Collectors.toList());
+    }
+
+    public Map<String, BuildService> getAllBuildServices() {
+        return ImmutableMap.copyOf(buildServices);
     }
 }

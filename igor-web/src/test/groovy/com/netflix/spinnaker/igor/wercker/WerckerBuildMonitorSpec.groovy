@@ -9,6 +9,7 @@
 package com.netflix.spinnaker.igor.wercker
 
 import com.netflix.spectator.api.NoopRegistry
+import com.netflix.spinnaker.fiat.model.resources.Permissions
 import com.netflix.spinnaker.igor.IgorConfigurationProperties
 import com.netflix.spinnaker.igor.config.WerckerProperties
 import com.netflix.spinnaker.igor.config.WerckerProperties.WerckerHost
@@ -40,7 +41,7 @@ class WerckerBuildMonitorSpec extends Specification {
     void setup() {
         client = Mock(WerckerClient)
         werckerService = new WerckerService(
-                new WerckerHost(name: master, address: werckerDev), cache, client)
+                new WerckerHost(name: master, address: werckerDev), cache, client, Permissions.EMPTY)
     }
 
     final MASTER = 'MASTER'
