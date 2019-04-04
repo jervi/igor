@@ -32,7 +32,6 @@ import com.netflix.spinnaker.igor.travis.client.model.TriggerResponse;
 import com.netflix.spinnaker.igor.travis.client.model.v3.Request;
 import com.netflix.spinnaker.igor.travis.client.model.v3.V3Build;
 import com.netflix.spinnaker.igor.travis.client.model.v3.V3Builds;
-import com.netflix.spinnaker.igor.travis.client.model.v3.V3Log;
 import retrofit.client.Response;
 import retrofit.http.Body;
 import retrofit.http.EncodedPath;
@@ -93,9 +92,10 @@ public interface TravisClient {
     @GET("/logs/{logId}")
     public abstract Response log(@Header("Authorization") String accessToken, @Path("logId") int logId);
 
+    @Streaming
     @Headers({"Travis-API-Version: 3", "Accept: text/plain"})
-    @GET("/job/{jobId}/log")
-    public abstract V3Log jobLog(@Header("Authorization") String accessToken, @Path("jobId") int jobId);
+    @GET("/job/{jobId}/log.txt")
+    public abstract Response jobLog(@Header("Authorization") String accessToken, @Path("jobId") int jobId);
 
     @GET("/build/{build_id}")
     @Headers("Travis-API-Version: 3")

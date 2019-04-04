@@ -49,7 +49,6 @@ import com.netflix.spinnaker.igor.travis.client.model.v3.TravisBuildType;
 import com.netflix.spinnaker.igor.travis.client.model.v3.V3Build;
 import com.netflix.spinnaker.igor.travis.client.model.v3.V3Builds;
 import com.netflix.spinnaker.igor.travis.client.model.v3.V3Job;
-import com.netflix.spinnaker.igor.travis.client.model.v3.V3Log;
 import net.logstash.logback.argument.StructuredArguments;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,7 +64,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -288,12 +286,11 @@ public class TravisService implements BuildOperations, BuildProperties {
         return jobIds.stream()
             .map(this::getJob)
             .map(job -> {
-                if (job.getLogId() > 0) {
-                    return getLog(job.getLogId());
-                } else {
-                    V3Log log = getJobLog(job.getId());
-                    return log == null ? "" : log.getContent();
+                String log = getJobLog(job.getId());
+                if (log == null && job.getLogId() > 0) {
+                  log = getLog(job.getLogId());
                 }
+                return log == null ? "" : log;
             })
             .collect(Collectors.joining("\n"));
     }
@@ -302,8 +299,6 @@ public class TravisService implements BuildOperations, BuildProperties {
         return build.getJobs().stream()
             .map(V3Job::getId)
             .map(this::getJobLog)
-            .filter(Objects::nonNull)
-            .map(V3Log::getContent)
             .collect(Collectors.joining("\n"));
     }
 
@@ -313,9 +308,10 @@ public class TravisService implements BuildOperations, BuildProperties {
         return new String(((TypedByteArray) response.getBody()).getBytes());
     }
 
-    public V3Log getJobLog(int jobId) {
+    public String getJobLog(int jobId) {
         log.debug("fetching log by jobId {}", jobId);
-        return travisClient.jobLog(getAccessToken(), jobId);
+        Response response = travisClient.jobLog(getAccessToken(), jobId);
+        return new String(((TypedByteArray) response.getBody()).getBytes());
     }
 
     public Repo getRepo(int repositoryId) {
