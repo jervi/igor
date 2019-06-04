@@ -26,14 +26,15 @@ import com.netflix.spinnaker.igor.travis.TravisCache
 import com.netflix.spinnaker.igor.travis.client.TravisClient
 import com.netflix.spinnaker.igor.travis.client.model.AccessToken
 import com.netflix.spinnaker.igor.travis.client.model.Build
-import com.netflix.spinnaker.igor.travis.client.model.RepoRequest
-import com.netflix.spinnaker.igor.travis.client.model.TriggerResponse
+import com.netflix.spinnaker.igor.travis.client.model.v3.RepoRequest
 import com.netflix.spinnaker.igor.travis.client.model.v3.Request
 import com.netflix.spinnaker.igor.travis.client.model.v3.TravisBuildState
 import com.netflix.spinnaker.igor.travis.client.model.v3.TravisBuildType
+import com.netflix.spinnaker.igor.travis.client.model.v3.TriggerResponse
 import com.netflix.spinnaker.igor.travis.client.model.v3.V3Build
 import com.netflix.spinnaker.igor.travis.client.model.v3.V3Builds
 import com.netflix.spinnaker.igor.travis.client.model.v3.V3Job
+import com.netflix.spinnaker.igor.travis.client.model.v3.V3Jobs
 import com.netflix.spinnaker.igor.travis.client.model.v3.V3Log
 import com.netflix.spinnaker.igor.travis.client.model.v3.V3Repository
 import spock.lang.Shared
@@ -46,7 +47,6 @@ class TravisServiceSpec extends Specification{
     @Shared
     TravisClient client
 
-    @Shared
     TravisService service
 
     @Shared
@@ -59,7 +59,7 @@ class TravisServiceSpec extends Specification{
         client = Mock()
         travisCache = Mock()
         artifactDecorator = Optional.of(new ArtifactDecorator([new DebDetailsDecorator(), new RpmDetailsDecorator()], null))
-        service = new TravisService('travis-ci', 'http://my.travis.ci', 'someToken', 25, client, travisCache, artifactDecorator, [], "travis.buildMessage", Permissions.EMPTY, false)
+        service = new TravisService('travis-ci', 'http://my.travis.ci', 'someToken', TravisService.TRAVIS_BUILD_RESULT_LIMIT, client, travisCache, artifactDecorator, [], "travis.buildMessage", Permissions.EMPTY, false)
 
         AccessToken accessToken = new AccessToken()
         accessToken.accessToken = "someToken"
@@ -94,6 +94,57 @@ class TravisServiceSpec extends Specification{
         1 * build.duration >> 32
         1 * build.finishedAt >> Instant.now()
         1 * build.getTimestamp() >> 1458051084000
+    }
+
+    @Unroll
+    def "getLatestBuilds() should return "() {
+      given:
+      service = new TravisService('travis-ci', 'http://my.travis.ci', 'someToken', numberOfJobs, client, travisCache, artifactDecorator, [], "travis.buildMessage", Permissions.EMPTY, false)
+      AccessToken accessToken = new AccessToken()
+      accessToken.accessToken = "someToken"
+      service.accessToken = accessToken
+
+
+      def listOfJobs = (1..numberOfJobs).collect { createJob(it) }
+      def partitionedJobs = listOfJobs.collate(TravisService.TRAVIS_BUILD_RESULT_LIMIT).collect { partition ->
+        V3Jobs jobs = new V3Jobs()
+        jobs.jobs = partition
+        return jobs
+      }
+
+      when:
+      def builds = service.getLatestBuilds()
+
+      then:
+      (1..expectedNumberOfPages).each { page ->
+        1 * client.jobs(
+          "token someToken",
+          TravisBuildState.passed.toString(),
+          "job.build,build.log_complete",
+          service.getLimit(page, numberOfJobs),
+          (page - 1) * TravisService.TRAVIS_BUILD_RESULT_LIMIT) >> partitionedJobs[page-1]
+      }
+      builds.size() == numberOfJobs
+
+      where:
+      numberOfJobs || expectedNumberOfPages
+      100          || 1
+      305          || 4
+      99           || 1
+      101          || 2
+    }
+
+    private static V3Job createJob(int id) {
+      def build = new V3Build([
+        id: id,
+        state: TravisBuildState.passed,
+        repository: new V3Repository([slug: "my/slug"])
+      ])
+      return new V3Job().with { v3job ->
+        v3job.id = id
+        v3job.build = build
+        return v3job
+      }
     }
 
     @Unroll
@@ -155,20 +206,38 @@ class TravisServiceSpec extends Specification{
 
     @Unroll
     def "calculate pagination correctly"() {
-        expect:
-        service.calculatePagination(buildsToTrack) == pages
+      expect:
+      service.calculatePagination(numberOfJobs) == pages
 
-        where:
-        buildsToTrack || pages
-        75            || 3
-        79            || 4
-        2             || 1
-        15            || 1
-        26            || 2
-        25            || 1
+      where:
+      numberOfJobs || pages
+      175          || 2
+      279          || 3
+      2            || 1
+      15           || 1
+      100          || 1
+      101          || 2
+      1001         || 11
     }
 
     @Unroll
+    def "calculate limit correctly"() {
+      expect:
+      service.getLimit(page, numberOfJobs) == limit
+
+      where:
+      page | numberOfJobs || limit
+      1    | 100          || 100
+      1    | 200          || 100
+      2    | 200          || 100
+      1    | 150          || 100
+      2    | 150          || 50
+      1    | 99           || 99
+      2    | 201          || 100
+      3    | 201          || 1
+    }
+
+  @Unroll
     def "resolve travis build type from input repo slug"() {
         expect:
         service.travisBuildTypeFromRepoSlug(inputRepoSlug) == expectedTravisBuildType
